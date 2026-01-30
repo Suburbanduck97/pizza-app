@@ -1,0 +1,227 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Admin Bibi Pizza</title>
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='0.9em' font-size='90'>⚙️</text></svg>">
+    <style>
+        :root { --primary: #D32F2F; }
+        body { font-family: 'Segoe UI', sans-serif; padding: 15px; background: #f4f4f4; color: #333; margin: 0;}
+        
+        /* TELA DE LOGIN */
+        #login-screen {
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background: var(--primary);
+            display: flex; flex-direction: column; justify-content: center; align-items: center;
+            z-index: 9999;
+        }
+
+        .header { 
+            background: white; padding: 15px; border-radius: 8px; margin-bottom: 15px; 
+            box-shadow: 0 2px 4px rgba(0,0,0,0.05); 
+            display: flex; justify-content: space-between; align-items: center;
+        }
+        
+        h1 { margin: 0; font-size: 1.4em; color: var(--primary); }
+        .btn-logout { background: #666; color: white; border: none; padding: 5px 10px; border-radius: 4px; cursor: pointer; font-size: 0.8em;}
+
+        .card { background: white; padding: 15px; margin-bottom: 15px; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.05); }
+        h2 { margin-top: 0; font-size: 1.2em; border-bottom: 2px solid #eee; padding-bottom: 10px; }
+
+        .item-row { display: flex; justify-content: space-between; align-items: center; padding: 12px 0; border-bottom: 1px solid #eee; }
+        
+        @media (max-width: 350px) {
+            .item-row { flex-direction: column; align-items: flex-start; gap: 8px; }
+            .controls { width: 100%; display: flex; justify-content: space-between; }
+        }
+
+        input[type="number"], input[type="password"] { padding: 8px; border: 1px solid #ddd; border-radius: 4px; font-size: 1em; }
+        input[type="number"] { width: 70px; }
+        
+        button { cursor: pointer; padding: 8px 12px; border-radius: 4px; font-weight: bold; border: none; font-size: 0.9em; }
+        .btn-save { background: #2e7d32; color: white; }
+        .btn-login { background: white; color: var(--primary); margin-top: 10px; width: 200px; }
+        
+        .btn-toggle { background: #eee; color: #333; width: 100%; text-align: left; }
+        .btn-toggle.active { background: #e3f2fd; color: #1565c0; border: 1px solid #1565c0; }
+        .btn-toggle.inactive { background: #ffebee; color: #c62828; text-decoration: line-through; opacity: 0.7; }
+        
+        .saved-anim { animation: flash 1s; }
+        @keyframes flash { 0% { background: #a5d6a7; } 100% { background: white; } }
+    </style>
+</head>
+<body>
+
+    <div id="login-screen">
+        <h2 style="color:white; margin-bottom:20px;">🔒 Área Restrita</h2>
+        <input type="password" id="admin-pass" placeholder="Senha do Admin" style="width:200px;">
+        <button class="btn-login" onclick="doLogin()">Entrar</button>
+    </div>
+
+    <div id="admin-content" style="display:none;">
+        <div class="header">
+            <div>
+                <h1>Painel Admin ⚙️</h1>
+                <small style="color:#666">Alterações em tempo real</small>
+            </div>
+            <button class="btn-logout" onclick="doLogout()">Sair 🚪</button>
+        </div>
+
+        <div class="card">
+            <h2>💰 Preços (Base)</h2>
+            <div id="sizes-admin">Carregando...</div>
+        </div>
+
+        <div class="card">
+            <h2>🧀 Cardápio (Ativar/Desativar)</h2>
+            <div id="flavors-admin">Carregando...</div>
+        </div>
+    </div>
+
+    <script>
+        const API_URL = "/api"; 
+        let userToken = localStorage.getItem('bibi_token');
+
+        // --- INICIALIZAÇÃO ---
+        
+        // Se tiver token, tenta carregar. Se falhar (token velho), pede login.
+        if (userToken) {
+            loadAdmin().catch(() => {
+                console.log("Token inválido ou expirado");
+                doLogout();
+            });
+        }
+
+        // --- FUNÇÕES DE AUTH ---
+
+        async function doLogin() {
+            const pass = document.getElementById('admin-pass').value;
+            try {
+                const res = await fetch(`${API_URL}/login`, {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({ password: pass })
+                });
+
+                if (res.ok) {
+                    const data = await res.json();
+                    userToken = data.token;
+                    localStorage.setItem('bibi_token', userToken);
+                    showPanel();
+                    loadAdmin(); // Recarrega dados
+                } else {
+                    alert("Senha incorreta!");
+                }
+            } catch (e) {
+                alert("Erro de conexão com o servidor backend.");
+            }
+        }
+
+        function doLogout() {
+            localStorage.removeItem('bibi_token');
+            location.reload(); // Recarrega a página para travar no login
+        }
+
+        function showPanel() {
+            document.getElementById('login-screen').style.display = 'none';
+            document.getElementById('admin-content').style.display = 'block';
+        }
+
+        // --- LÓGICA DO ADMIN ---
+
+        async function loadAdmin() {
+            // Tenta buscar o menu. Se o backend estiver protegido, isso vai funcionar
+            // mas as ações de SALVAR vão pedir token.
+            const res = await fetch(`${API_URL}/menu`);
+            if (!res.ok) throw new Error("Erro ao carregar");
+            
+            const data = await res.json();
+            showPanel(); // Só mostra se carregou com sucesso
+
+            // Renderiza Tamanhos
+            document.getElementById('sizes-admin').innerHTML = data.sizes.map(s => `
+                <div class="item-row" id="row-size-${s.id}">
+                    <strong>${s.name}</strong>
+                    <div class="controls">
+                        R$ <input type="number" id="price-${s.id}" value="${s.price}">
+                        <button class="btn-save" onclick="updatePrice(${s.id})">Salvar</button>
+                    </div>
+                </div>
+            `).join('');
+
+            // Renderiza Sabores
+            let flavorsHtml = '';
+            for (const [cat, list] of Object.entries(data.flavors)) {
+                flavorsHtml += `<h3 style="margin:15px 0 5px; color:#666">${cat}</h3>`;
+                flavorsHtml += list.map(f => `
+                    <div style="margin-bottom:5px">
+                        <button 
+                            class="btn-toggle ${f.active ? 'active' : 'inactive'}" 
+                            onclick="toggleFlavor(this, ${f.id}, ${!f.active})"
+                        >
+                            ${f.active ? '✅' : '❌'} ${f.name}
+                        </button>
+                    </div>
+                `).join('');
+            }
+            document.getElementById('flavors-admin').innerHTML = flavorsHtml;
+        }
+
+        async function updatePrice(id) {
+            const newPrice = document.getElementById(`price-${id}`).value;
+            const row = document.getElementById(`row-size-${id}`);
+            
+            const res = await fetch(`${API_URL}/admin/sizes/${id}`, {
+                method: 'PUT',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'x-token': userToken // <--- Envia o Token
+                },
+                body: JSON.stringify({ price: parseFloat(newPrice) })
+            });
+
+            if (res.status === 401) {
+                alert("Sessão expirada. Faça login novamente.");
+                doLogout();
+                return;
+            }
+
+            if (res.ok) {
+                row.classList.add('saved-anim');
+                setTimeout(() => row.classList.remove('saved-anim'), 1000);
+            } else {
+                alert("Erro ao salvar");
+            }
+        }
+
+        async function toggleFlavor(btn, id, newState) {
+            // Feedback Visual Imediato
+            const originalText = btn.innerHTML;
+            btn.innerHTML = "...";
+            
+            const res = await fetch(`${API_URL}/admin/flavors/${id}`, {
+                method: 'PUT',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'x-token': userToken // <--- Envia o Token
+                },
+                body: JSON.stringify({ active: newState })
+            });
+
+            if (res.status === 401) {
+                alert("Sessão expirada.");
+                doLogout();
+                return;
+            }
+
+            if (res.ok) {
+                loadAdmin(); // Recarrega para confirmar
+            } else {
+                btn.innerHTML = originalText; // Reverte se der erro
+                alert("Erro ao alterar");
+            }
+        }
+    </script>
+</body>
+</html>

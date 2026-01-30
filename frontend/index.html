@@ -1,0 +1,154 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Bibi Pizza | Pedido Online</title>
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='0.9em' font-size='90'>🍕</text></svg>">
+    <style>
+        :root { --primary: #D32F2F; --bg: #f4f4f4; --text: #333; }
+        body { font-family: 'Segoe UI', sans-serif; margin: 0; background: var(--bg); color: var(--text); padding-bottom: 160px; }
+        
+        /* HEADER FLEXBOX (Logo Esq - Texto Dir) */
+        .header { 
+            background: var(--primary); 
+            color: white; 
+            padding: 10px 15px; 
+            position: sticky; 
+            top: 0; 
+            z-index: 100; 
+            box-shadow: 0 2px 5px rgba(0,0,0,0.2);
+            display: flex; 
+            align-items: center; 
+            justify-content: space-between; 
+        }
+
+        .brand-left {
+            display: flex;
+            align-items: center;
+        }
+
+        .logo-img {
+            width: 45px;
+            height: 45px;
+            border-radius: 50%;
+            background: white;
+            padding: 2px;
+            object-fit: contain;
+            border: 2px solid white;
+        }
+
+        .header-text {
+            text-align: right;
+        }
+        
+        .header-text h2 { margin: 0; font-size: 1.2em; line-height: 1.1; }
+        .header-text small { font-size: 0.75em; opacity: 0.9; }
+
+        .container { max-width: 600px; margin: 0 auto; padding: 15px; }
+        
+        /* RESTO DO CSS (Cards, Inputs, etc) */
+        .section-title { font-size: 1.1em; color: var(--primary); margin: 20px 0 10px; border-bottom: 2px solid #ddd; padding-bottom: 5px; }
+        
+        .size-grid { display: grid; grid-template-columns: 1fr; gap: 10px; }
+        .size-card { background: white; padding: 15px; border-radius: 8px; border: 2px solid transparent; cursor: pointer; display: flex; justify-content: space-between; align-items: center; box-shadow: 0 1px 3px rgba(0,0,0,0.1); }
+        .size-card.selected { border-color: var(--primary); background: #fff5f5; }
+        .price-tag { font-weight: bold; font-size: 1.2em; color: var(--primary); }
+
+        .flavor-item { background: white; padding: 12px; margin-bottom: 8px; border-radius: 6px; display: flex; justify-content: space-between; align-items: center; }
+        .flavor-info small { color: #666; display: block; font-size: 0.8em; }
+        .btn-add { background: #eee; border: none; width: 30px; height: 30px; border-radius: 50%; font-size: 1.2em; cursor: pointer; }
+        .btn-add.active { background: var(--primary); color: white; }
+
+        .ai-btn { background: #FFC107; border: none; width: 100%; padding: 10px; border-radius: 6px; font-weight: bold; cursor: pointer; margin-bottom: 15px; display: none; }
+        
+        /* FOOTER AJUSTADO */
+        .footer { 
+            position: fixed; bottom: 0; left: 0; right: 0; 
+            background: white; padding: 15px; 
+            box-shadow: 0 -2px 10px rgba(0,0,0,0.1); 
+            display: flex; flex-direction: column; gap: 10px;
+            z-index: 1000;
+        }
+        
+        .footer-row { display: flex; justify-content: space-between; align-items: center; width: 100%; }
+        .total-price { font-size: 1.3em; font-weight: bold; }
+        .btn-whatsapp { background: #25D366; color: white; border: none; padding: 12px 25px; border-radius: 30px; font-weight: bold; text-decoration: none; font-size: 1em; }
+        
+        .copyright { text-align: center; font-size: 0.7em; color: #999; }
+
+        input, textarea, select { width: 100%; padding: 10px; margin-bottom: 10px; border: 1px solid #ddd; border-radius: 4px; box-sizing: border-box; background: white; }
+        .counter { display: flex; align-items: center; gap: 10px; }
+    </style>
+</head>
+<body>
+
+    <div class="header">
+        <div class="brand-left">
+            <img src="logo.png" alt="Logo" class="logo-img">
+        </div>
+        <div class="header-text">
+            <h2>Bibi Pizza 🍕</h2>
+            <small>Massa aberta na hora!</small>
+        </div>
+    </div>
+
+    <div class="container">
+        <div class="section-title">1. Escolha o Tamanho</div>
+        <div id="sizes-list" class="size-grid">Carregando...</div>
+
+        <div id="flavors-section" style="display:none;">
+            <div class="section-title">
+                2. Escolha os Sabores <span id="flavor-counter">(0/0)</span>
+            </div>
+            <button class="ai-btn" onclick="askAI()">✨ Sugestão da Chef (IA)</button>
+            <div id="flavors-list"></div>
+        </div>
+
+        <div class="section-title">3. Bebidas (Opcional)</div>
+        <div id="beverages-list"></div>
+
+        <div class="section-title">4. Finalizar Pedido</div>
+        <div style="background: white; padding: 15px; border-radius: 8px;">
+            <label style="font-weight:bold; display:block; margin-bottom:5px">Seu Nome *</label>
+            <input type="text" id="client-name" placeholder="Ex: João Silva">
+
+            <label style="font-weight:bold; display:block; margin:10px 0 5px">Endereço de Entrega *</label>
+            <div style="display: grid; grid-template-columns: 2fr 1fr; gap: 10px;">
+                <input type="text" id="addr-street" placeholder="Rua / Avenida">
+                <input type="number" id="addr-number" placeholder="Nº">
+            </div>
+            <input type="text" id="addr-district" placeholder="Bairro">
+            <input type="text" id="addr-ref" placeholder="Referência (Opcional)">
+
+            <label style="font-weight:bold; display:block; margin:10px 0 5px">Forma de Pagamento *</label>
+            <select id="payment-method" onchange="toggleChangeInput()">
+                <option value="">Selecione...</option>
+                <option value="pix">PIX</option>
+                <option value="cartao">Cartão (Levamos maquininha)</option>
+                <option value="dinheiro">Dinheiro</option>
+            </select>
+
+            <div id="change-box" style="display:none; margin-top:10px;">
+                <label>Troco para quanto?</label>
+                <input type="text" id="change-value" placeholder="Ex: 50,00">
+            </div>
+
+            <label style="font-weight:bold; display:block; margin:10px 0 5px">Observações</label>
+            <textarea id="client-obs" placeholder="Ex: Tirar a cebola..."></textarea>
+        </div>
+    </div>
+
+    <div class="footer">
+        <div class="footer-row">
+            <div class="total-price">Total: <span style="color:var(--primary)">R$ <span id="total-display">0,00</span></span></div>
+            <button class="btn-whatsapp" onclick="sendOrder()">Enviar Pedido 📱</button>
+        </div>
+        <div class="copyright">
+            © 2026 Bibi Pizza Delivery. Tecnologia: Ericsson Dev.
+        </div>
+    </div>
+
+    <script src="js/app.js"></script>
+</body>
+</html>
