@@ -29,7 +29,14 @@ app.add_middleware(
 )
 
 # Servir arquivos estáticos (Frontend)
-app.mount("/static", StaticFiles(directory="../frontend"), name="static")
+current_dir = os.path.dirname(os.path.abspath(__file__))
+
+frontend_path = os.path.join(current_dir, "../../frontend")
+
+if os.path.isdir(frontend_path):
+    app.mount("/static", StaticFiles(directory=frontend_path), name="static")
+else:
+    print(f"⚠️ AVISO: Pasta frontend não encontrada em: {frontend_path}")
 
 def get_db():
     db = database.SessionLocal()
